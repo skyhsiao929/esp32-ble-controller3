@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>超音波治療控制</title>
+    <!-- 引入 Tailwind CSS 用於美化介面 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Lucide 圖標庫 -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overscroll-behavior-y: none; /* 防止 iOS 橡皮筋效果 */
+        }
+        .app-background {
+            background: linear-gradient(180deg, #A8DBEE 0%, #4DB5BE 100%); /* 您的藍綠漸層色 */
+            min-height: 100vh;
+        }
+        .glass-card {
+            background-color: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="app-background text-slate-800">
+
+    <div id="app" class="max-w-md mx-auto h-screen flex flex-col overflow-hidden relative">
+        
+        <!-- 主畫面 -->
+        <div id="controlScreen" class="flex-1 flex flex-col h-full overflow-y-auto p-5 pb-24 space-y-4">
+            
+            <!-- 狀態列 -->
+            <div class="glass-card rounded-3xl overflow-hidden mt-8">
+                <div class="flex justify-between items-center p-4 border-b border-cyan-100 bg-white/90">
+                    <div class="flex items-center gap-2">
+                        <i id="connIcon" data-lucide="circle-off" class="w-4 h-4 text-red-500"></i>
+                        <span id="connText" class="text-sm font-semibold text-slate-600">設備未連線</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <span class="text-sm font-semibold text-slate-600">模式: Recovery</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 患者資訊 -->
+            <div class="glass-card rounded-3xl p-5">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-lg font-bold text-slate-900">患者資訊</h2>
+                    <button onclick="toggleProfile()" class="p-2 rounded-full hover:bg-slate-100">
+                        <i data-lucide="pencil" class="w-4 h-4 text-slate-800"></i>
+                    </button>
+                </div>
+                <div class="space-y-2 text-sm">
+                    <div class="flex"><span class="w-16 text-slate-500">姓名:</span><span id="dispName" class="font-medium">王小明</span></div>
+                    <div class="flex"><span class="w-16 text-slate-500">ID:</span><span id="dispId" class="font-medium">A123456789</span></div>
+                </div>
+            </div>
+
+            <!-- 參數設定 (治療前顯示) -->
+            <div id="settingsPanel" class="glass-card rounded-3xl p-5 space-y-6 transition-all duration-300">
+                <div>
+                    <h3 class="font-semibold text-slate-900 mb-2">治療強度</h3>
+                    <div class="flex bg-cyan-50 rounded-2xl p-1">
+                        <button onclick="setStrength('Weak')" id="btnWeak" class="flex-1 py-3 rounded-xl text-sm font-semibold bg-cyan-500 text-white shadow-sm transition-all">弱</button>
+                        <button onclick="setStrength('Strong')" id="btnStrong" class="flex-1 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-white/50 transition-all">強</button>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-slate-900 mb-2">治療時長 (分)</h3>
+                    <div class="flex bg-cyan-50 rounded-2xl p-1">
+                        <button onclick="setDuration(5)" id="btn5" class="flex-1 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-white/50 transition-all">5</button>
+                        <button onclick="setDuration(10)" id="btn10" class="flex-1 py-3 rounded-xl text-sm font-semibold bg-cyan-500 text-white shadow-sm transition-all">10</button>
+                        <button onclick="setDuration(15)" id="btn15" class="flex-1 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-white/50 transition-all">15</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 監控畫面 (治療中顯示) -->
+            <div id="monitoringPanel" class="hidden glass-card rounded-3xl p-8 bg-teal-50/90 text-center space-y-4 border-2 border-teal-500/20">
+                <h3 class="text-xl font-bold text-teal-600">治療進行中...</h3>
+                <div id="timerDisplay" class="text-6xl font-bold text-teal-600 tabular-nums tracking-wider">10:00</div>
+                <div class="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
+                    <div id="progressBar" class="h-full bg-teal-600 transition-all duration-1000 ease-linear" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部按鈕 -->
+        <div class="absolute bottom-0 w-full p-6 bg-gradient-to-t from-[#4DB5BE] to-transparent pt-10">
+            <button id="connectBtn" onclick="toggleConnection()" class="w-full py-4 bg-cyan-500 text-white text-lg font-bold rounded-2xl shadow-lg shadow-cyan-500/30">連線設備</button>
+            
+            <div id="therapyControls" class="hidden flex gap-4 w-full">
+                <button id="startBtn" onclick="startTherapy()" class="flex-1 py-4 bg-cyan-500 text-white text-lg font-bold rounded-2xl shadow-lg">START</button>
+                <button id="stopBtn" onclick="stopTherapy()" class="flex-1 py-4 bg-red-500 text-white text-lg font-bold rounded-2xl shadow-lg" disabled>STOP</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        
+        // --- 變數 ---
+        let deviceConnected = false;
+        let bluetoothDevice, controlChar;
+        const SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
+        const CHAR_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
+        
+        let strength = 'Weak';
+        let durationMin = 10;
+        let remainingSec = 0;
+        let timerInterval;
+
+        // --- 介面操作 ---
+        function setStrength(val) {
+            strength = val;
+            updateBtnStyle('btnWeak', val === 'Weak');
+            updateBtnStyle('btnStrong', val === 'Strong');
+        }
+        function setDuration(val) {
+            durationMin = val;
+            updateBtnStyle('btn5', val === 5);
+            updateBtnStyle('btn10', val === 10);
+            updateBtnStyle('btn15', val === 15);
+        }
+        function updateBtnStyle(id, active) {
+            const el = document.getElementById(id);
+            if(active) {
+                el.className = "flex-1 py-3 rounded-xl text-sm font-semibold bg-cyan-500 text-white shadow-sm transition-all";
+            } else {
+                el.className = "flex-1 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-white/50 transition-all";
+            }
+        }
+
+        // --- 藍牙功能 ---
+        async function toggleConnection() {
+            if(!deviceConnected) {
+                try {
+                    bluetoothDevice = await navigator.bluetooth.requestDevice({
+                        filters: [{ namePrefix: 'ESP32' }],
+                        optionalServices: [SERVICE_UUID]
+                    });
+                    bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
+                    const server = await bluetoothDevice.gatt.connect();
+                    const service = await server.getPrimaryService(SERVICE_UUID);
+                    controlChar = await service.getCharacteristic(CHAR_UUID);
+                    
+                    onConnected();
+                } catch(e) { alert('連線失敗: ' + e); }
+            }
+        }
+
+        function onConnected() {
+            deviceConnected = true;
+            document.getElementById('connText').innerText = "已連線";
+            document.getElementById('connText').className = "text-sm font-semibold text-emerald-600";
+            document.getElementById('connIcon').outerHTML = '<i id="connIcon" data-lucide="check-circle" class="w-4 h-4 text-emerald-500"></i>';
+            lucide.createIcons();
+            
+            document.getElementById('connectBtn').classList.add('hidden');
+            document.getElementById('therapyControls').classList.remove('hidden'); // 顯示 START/STOP
+            sendCommand("0"); // 傳送 0 讓 LED 恆亮 (表示待機)
+        }
+
+        function onDisconnected() {
+            deviceConnected = false;
+            stopTherapy(true);
+            document.getElementById('connText').innerText = "設備未連線";
+            document.getElementById('connText').className = "text-sm font-semibold text-red-500";
+            document.getElementById('connIcon').outerHTML = '<i id="connIcon" data-lucide="circle-off" class="w-4 h-4 text-red-500"></i>';
+            lucide.createIcons();
+            
+            document.getElementById('connectBtn').classList.remove('hidden');
+            document.getElementById('therapyControls').classList.add('hidden');
+        }
+
+        async function sendCommand(val) {
+            if(!controlChar) return;
+            try { await controlChar.writeValue(new TextEncoder().encode(val)); } catch(e){}
+        }
+
+        // --- 治療邏輯 ---
+        function startTherapy() {
+            document.getElementById('settingsPanel').classList.add('hidden');
+            document.getElementById('monitoringPanel').classList.remove('hidden');
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            
+            remainingSec = durationMin * 60;
+            updateTimer();
+            sendCommand("1"); // 傳送 1 讓 LED 快閃 (表示治療中)
+            
+            timerInterval = setInterval(() => {
+                remainingSec--;
+                updateTimer();
+                if(remainingSec <= 0) stopTherapy();
+            }, 1000);
+        }
+
+        function stopTherapy(forced) {
+            clearInterval(timerInterval);
+            document.getElementById('settingsPanel').classList.remove('hidden');
+            document.getElementById('monitoringPanel').classList.add('hidden');
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            
+            if(deviceConnected && !forced) sendCommand("0"); // 停止閃爍
+        }
+
+        function updateTimer() {
+            const min = Math.floor(remainingSec / 60).toString().padStart(2,'0');
+            const sec = (remainingSec % 60).toString().padStart(2,'0');
+            document.getElementById('timerDisplay').innerText = `${min}:${sec}`;
+            
+            const total = durationMin * 60;
+            const pct = ((total - remainingSec) / total) * 100;
+            document.getElementById('progressBar').style.width = `${pct}%`;
+        }
+    </script>
+</body>
+</html>
